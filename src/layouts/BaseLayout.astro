@@ -1,4 +1,6 @@
 ---
+import ThemeToggle from '../components/ThemeToggle.astro';
+
 interface Props {
   title: string;
 }
@@ -13,11 +15,26 @@ const { title } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
     <title>{title}</title>
+    <script is:inline>
+      (function() {
+        const saved = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.classList.add('no-transition');
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            document.documentElement.classList.remove('no-transition');
+          });
+        });
+      })();
+    </script>
   </head>
   <body>
     <header>
       <nav>
         <a href="/">nivvok.art</a>
+        <ThemeToggle />
       </nav>
     </header>
     <main>
@@ -30,6 +47,25 @@ const { title } = Astro.props;
 </html>
 
 <style>
+  :global(:root) {
+    --color-bg: #1a1a1a;
+    --color-text: #e0e0e0;
+    --color-text-muted: #666;
+    --color-border: #333;
+  }
+
+  :global([data-theme="light"]) {
+    --color-bg: #f5f3f0;
+    --color-text: #2c2c2c;
+    --color-text-muted: #888;
+    --color-border: #d4d0cc;
+  }
+
+  :global(.no-transition),
+  :global(.no-transition *) {
+    transition: none !important;
+  }
+
   :global(*) {
     margin: 0;
     padding: 0;
@@ -38,21 +74,30 @@ const { title } = Astro.props;
 
   :global(body) {
     font-family: system-ui, -apple-system, sans-serif;
-    background-color: #1a1a1a;
-    color: #e0e0e0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
     min-height: 100vh;
+    transition: background-color 0.3s, color 0.3s;
   }
 
   header {
     padding: 1rem 2rem;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--color-border);
+    transition: border-color 0.3s;
+  }
+
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   nav a {
-    color: #e0e0e0;
+    color: var(--color-text);
     text-decoration: none;
     font-size: 1.25rem;
     font-weight: 600;
+    transition: color 0.3s;
   }
 
   main {
@@ -64,7 +109,8 @@ const { title } = Astro.props;
   footer {
     text-align: center;
     padding: 2rem;
-    color: #666;
-    border-top: 1px solid #333;
+    color: var(--color-text-muted);
+    border-top: 1px solid var(--color-border);
+    transition: color 0.3s, border-color 0.3s;
   }
 </style>
