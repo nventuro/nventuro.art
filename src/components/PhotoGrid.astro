@@ -60,18 +60,18 @@ const processedPhotos = await Promise.all(
     let subtitleParts: string[] = [];
 
     subtitleParts.push(
-      `<span class="meta-item"><img src="${manufacturerLogo}" class="meta-logo" alt="" />${photo.data.manufacturer}</span>`
+      `<span class="meta-item meta-tooltip" data-tooltip="${photo.data.manufacturer}"><img src="${manufacturerLogo}" class="meta-logo" alt="${photo.data.manufacturer}" /></span>`
     );
 
     if (photo.data.game) {
       subtitleParts.push(
-        `<span class="meta-item"><img src="${gameLogo}" class="meta-logo" alt="" />${photo.data.game}</span>`
+        `<span class="meta-item meta-tooltip" data-tooltip="${photo.data.game}"><img src="${gameLogo}" class="meta-logo" alt="${photo.data.game}" /></span>`
       );
     }
 
     if (photo.data.faction) {
       subtitleParts.push(
-        `<span class="meta-item"><img src="${factionLogo}" class="meta-logo" alt="" />${photo.data.faction}</span>`
+        `<span class="meta-item meta-tooltip" data-tooltip="${photo.data.faction}"><img src="${factionLogo}" class="meta-logo" alt="${photo.data.faction}" /></span>`
       );
     }
 
@@ -250,8 +250,8 @@ const processedPhotos = await Promise.all(
   }
 
   .meta-logo {
-    width: 18px;
-    height: 18px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
     vertical-align: middle;
   }
@@ -259,5 +259,32 @@ const processedPhotos = await Promise.all(
   .meta-sep {
     margin: 0 0.5rem;
     opacity: 0.5;
+  }
+
+  .meta-tooltip {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .meta-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.3rem 0.6rem;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    margin-bottom: 4px;
+  }
+
+  .meta-tooltip:hover::after {
+    opacity: 1;
   }
 </style>
