@@ -1,4 +1,4 @@
-# nventuro.art
+# nivvok.art
 
 A static photo gallery website for displaying painted miniatures, hosted on GitHub Pages.
 
