@@ -145,10 +145,15 @@ const processedPhotos = await Promise.all(
       const item = (e.target as HTMLElement).closest('.photo-item');
       if (!item) return;
 
-      const slidesJson = item.getAttribute('data-slides');
-      if (!slidesJson) return;
+      const items = galleryElement.querySelectorAll('.photo-item');
+      let allSlides: any[] = [];
+      let startIndex = 0;
 
-      const slides = JSON.parse(slidesJson);
+      items.forEach((el) => {
+        const slides = JSON.parse(el.getAttribute('data-slides') || '[]');
+        if (el === item) startIndex = allSlides.length;
+        allSlides = allSlides.concat(slides);
+      });
 
       const container = document.createElement('div');
       const lg = lightGallery(container, {
@@ -157,10 +162,10 @@ const processedPhotos = await Promise.all(
         licenseKey: '0000-0000-000-0000',
         download: false,
         dynamic: true,
-        dynamicEl: slides,
+        dynamicEl: allSlides,
       });
 
-      lg.openGallery(0);
+      lg.openGallery(startIndex);
     });
   }
 </script>
