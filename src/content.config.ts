@@ -7,10 +7,11 @@ const photos = defineCollection({
     z.object({
       title: z.string(),
       photo: image(),
-      category: z.string(),
+      manufacturer: z.string(),
+      year: z.number(),
+      scale: z.string(),
+      game: z.string().optional(),
       faction: z.string().optional(),
-      manufacturer: z.string().optional(),
-      tags: z.array(z.string()).default([]),
     }),
 });
 

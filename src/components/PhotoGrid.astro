@@ -8,6 +8,29 @@ interface Props {
 
 const { photos } = Astro.props;
 
+// Load all logo images via import.meta.glob
+const logoFiles = import.meta.glob<{ default: ImageMetadata }>('/src/assets/logos/**/*.png', { eager: true });
+
+function toKebabCase(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '-');
+}
+
+function getLogoSrc(type: string, name: string): string {
+  const key = `/src/assets/logos/${type}/${toKebabCase(name)}.png`;
+  const match = logoFiles[key];
+  if (!match) {
+    throw new Error(`Missing logo file: ${key} (referenced by "${name}")`);
+  }
+  return match.default.src;
+}
+
+// Validate all referenced logos exist at build time
+for (const photo of photos) {
+  getLogoSrc('manufacturers', photo.data.manufacturer);
+  if (photo.data.game) getLogoSrc('games', photo.data.game);
+  if (photo.data.faction) getLogoSrc('factions', photo.data.faction);
+}
+
 const processedPhotos = await Promise.all(
   photos.map(async (photo) => {
     const thumbnail = await getImage({
@@ -20,11 +43,44 @@ const processedPhotos = await Promise.all(
       width: 1600,
       format: 'webp',
     });
+
+    const manufacturerLogo = getLogoSrc('manufacturers', photo.data.manufacturer);
+    const gameLogo = photo.data.game ? getLogoSrc('games', photo.data.game) : null;
+    const factionLogo = photo.data.faction ? getLogoSrc('factions', photo.data.faction) : null;
+
+    // Build subtitle HTML for lightbox
+    let subtitleParts: string[] = [];
+
+    subtitleParts.push(
+      `<span class="meta-item"><img src="${manufacturerLogo}" class="meta-logo" alt="" />${photo.data.manufacturer}</span>`
+    );
+
+    if (photo.data.game) {
+      subtitleParts.push(
+        `<span class="meta-item"><img src="${gameLogo}" class="meta-logo" alt="" />${photo.data.game}</span>`
+      );
+    }
+
+    if (photo.data.faction) {
+      subtitleParts.push(
+        `<span class="meta-item"><img src="${factionLogo}" class="meta-logo" alt="" />${photo.data.faction}</span>`
+      );
+    }
+
+    subtitleParts.push(`<span class="meta-item">${photo.data.scale}</span>`);
+    subtitleParts.push(`<span class="meta-item">${photo.data.year}</span>`);
+
+    const subtitle = `<div class="meta-row">${subtitleParts.join('<span class="meta-sep">·</span>')}</div>`;
+
+    const altParts = [photo.data.title, photo.data.manufacturer];
+    if (photo.data.game) altParts.push(photo.data.game);
+    if (photo.data.faction) altParts.push(photo.data.faction);
+
     return {
       id: photo.id,
       title: photo.data.title,
-      category: photo.data.category,
-      faction: photo.data.faction,
+      subtitle,
+      alt: altParts.join(' — '),
       thumbnail,
       fullSize,
     };
@@ -36,14 +92,14 @@ const processedPhotos = await Promise.all(
   {processedPhotos.map((photo) => (
     <a
       href={photo.fullSize.src}
-      data-sub-html={`<h4>${photo.title}</h4><p>${photo.category}${photo.faction ? ' — ' + photo.faction : ''}</p>`}
+      data-sub-html={`<h4>${photo.title}</h4>${photo.subtitle}`}
       class="photo-item"
     >
       <img
         src={photo.thumbnail.src}
         width={photo.thumbnail.attributes.width}
         height={photo.thumbnail.attributes.height}
-        alt={photo.title}
+        alt={photo.alt}
         loading="lazy"
         decoding="async"
       />
@@ -94,5 +150,33 @@ const processedPhotos = await Promise.all(
 
   .photo-item:hover img {
     transform: scale(1.03);
+  }
+</style>
+
+<style is:global>
+  .meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem 0;
+  }
+
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .meta-logo {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    vertical-align: middle;
+  }
+
+  .meta-sep {
+    margin: 0 0.5rem;
+    opacity: 0.5;
   }
 </style>
