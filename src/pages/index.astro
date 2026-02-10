@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PhotoGrid from '../components/PhotoGrid.astro';
+import { getCollection } from 'astro:content';
+
+const photos = await getCollection('photos');
+---
+
+<BaseLayout title="nventuro.art — Painted Miniatures Gallery">
+  <h1>Gallery</h1>
+  <PhotoGrid photos={photos} />
+</BaseLayout>
+
+<style>
+  h1 {
+    margin-bottom: 1.5rem;
+    font-size: 1.75rem;
+  }
+</style>

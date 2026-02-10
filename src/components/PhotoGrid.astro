@@ -1,0 +1,98 @@
+---
+import { getImage } from 'astro:assets';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  photos: CollectionEntry<'photos'>[];
+}
+
+const { photos } = Astro.props;
+
+const processedPhotos = await Promise.all(
+  photos.map(async (photo) => {
+    const thumbnail = await getImage({
+      src: photo.data.photo,
+      width: 400,
+      format: 'webp',
+    });
+    const fullSize = await getImage({
+      src: photo.data.photo,
+      width: 1600,
+      format: 'webp',
+    });
+    return {
+      id: photo.id,
+      title: photo.data.title,
+      category: photo.data.category,
+      faction: photo.data.faction,
+      thumbnail,
+      fullSize,
+    };
+  })
+);
+---
+
+<div id="gallery" class="photo-grid">
+  {processedPhotos.map((photo) => (
+    <a
+      href={photo.fullSize.src}
+      data-sub-html={`<h4>${photo.title}</h4><p>${photo.category}${photo.faction ? ' — ' + photo.faction : ''}</p>`}
+      class="photo-item"
+    >
+      <img
+        src={photo.thumbnail.src}
+        width={photo.thumbnail.attributes.width}
+        height={photo.thumbnail.attributes.height}
+        alt={photo.title}
+        loading="lazy"
+        decoding="async"
+      />
+    </a>
+  ))}
+</div>
+
+<script>
+  import lightGallery from 'lightgallery';
+  import lgZoom from 'lightgallery/plugins/zoom';
+  import lgThumbnail from 'lightgallery/plugins/thumbnail';
+
+  import 'lightgallery/css/lightgallery.css';
+  import 'lightgallery/css/lg-zoom.css';
+  import 'lightgallery/css/lg-thumbnail.css';
+
+  const galleryElement = document.getElementById('gallery');
+  if (galleryElement) {
+    lightGallery(galleryElement, {
+      plugins: [lgZoom, lgThumbnail],
+      speed: 400,
+      licenseKey: '0000-0000-000-0000',
+      download: false,
+    });
+  }
+</script>
+
+<style>
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .photo-item {
+    display: block;
+    overflow: hidden;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .photo-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s ease;
+  }
+
+  .photo-item:hover img {
+    transform: scale(1.03);
+  }
+</style>
