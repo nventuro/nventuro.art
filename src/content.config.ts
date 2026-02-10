@@ -6,7 +6,7 @@ const photos = defineCollection({
   schema: ({ image }) =>
     z.object({
       title: z.string(),
-      photo: image(),
+      photos: z.array(image()).min(1),
       manufacturer: z.string(),
       year: z.number(),
       scale: z.string(),

@@ -1,5 +1,6 @@
 title: "Ork Boy"
-photo: "../../assets/photos/ork-boy.png"
+photos:
+  - "../../assets/photos/ork-boy.png"
 manufacturer: "Games Workshop"
 year: 2024
 scale: "28mm"

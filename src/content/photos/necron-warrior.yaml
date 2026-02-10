@@ -1,5 +1,7 @@
 title: "Necron Warrior"
-photo: "../../assets/photos/necron-warrior.png"
+photos:
+  - "../../assets/photos/necron-warrior.png"
+  - "../../assets/photos/necron-warrior-back.png"
 manufacturer: "Games Workshop"
 year: 2024
 scale: "28mm"

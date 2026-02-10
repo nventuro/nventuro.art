@@ -1,5 +1,6 @@
 title: "Space Marine Intercessor"
-photo: "../../assets/photos/space-marine.png"
+photos:
+  - "../../assets/photos/space-marine.png"
 manufacturer: "Games Workshop"
 year: 2024
 scale: "28mm"
