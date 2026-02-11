@@ -113,6 +113,7 @@ const processedMiniatures = await Promise.all(
   {processedMiniatures.map((mini) => (
     <div
       class="miniature-item"
+      data-id={mini.id}
       data-slides={JSON.stringify(mini.slides)}
       data-manufacturer={mini.manufacturer}
       data-game={mini.game ?? ''}
@@ -150,40 +151,164 @@ const processedMiniatures = await Promise.all(
   import 'lightgallery/css/lg-zoom.css';
   import 'lightgallery/css/lg-thumbnail.css';
 
+  // Prevent browser from auto-restoring scroll position on history navigation
+  history.scrollRestoration = 'manual';
+
+  // Module-scoped state
+  let currentLg: ReturnType<typeof lightGallery> | null = null;
+  let currentSlideToMiniatureId: string[] = [];
+  let currentViewedMiniatureId: string | null = null;
+  let closedViaPopstate = false;
+
   const galleryElement = document.getElementById('gallery');
+
+  function buildSlidesFromVisible(targetItem?: Element) {
+    const visibleItems = galleryElement!.querySelectorAll('.miniature-item:not(.filtered-out):not(.filtering-out)');
+    let allSlides: any[] = [];
+    let slideToMiniatureId: string[] = [];
+    let startIndex = 0;
+
+    visibleItems.forEach((el) => {
+      const slides = JSON.parse(el.getAttribute('data-slides') || '[]');
+      const miniId = el.getAttribute('data-id') || '';
+      if (el === targetItem) startIndex = allSlides.length;
+      for (let i = 0; i < slides.length; i++) {
+        slideToMiniatureId.push(miniId);
+      }
+      allSlides = allSlides.concat(slides);
+    });
+
+    return { allSlides, slideToMiniatureId, startIndex };
+  }
+
+  function createAndOpenLightbox(allSlides: any[], slideToMiniatureId: string[], startIndex: number, pushState: boolean) {
+    currentSlideToMiniatureId = slideToMiniatureId;
+    currentViewedMiniatureId = slideToMiniatureId[startIndex] || null;
+    closedViaPopstate = false;
+
+    if (pushState && currentViewedMiniatureId) {
+      history.pushState(null, '', '#' + currentViewedMiniatureId);
+    }
+
+    const container = document.createElement('div');
+    const lg = lightGallery(container, {
+      plugins: [lgZoom, lgThumbnail],
+      speed: 400,
+      licenseKey: '0000-0000-000-0000',
+      download: false,
+      dynamic: true,
+      dynamicEl: allSlides,
+    });
+    currentLg = lg;
+
+    // Update caption immediately and track current miniature via hash
+    container.addEventListener('lgBeforeSlide', ((e: CustomEvent) => {
+      const idx = e.detail.index;
+      const subHtml = allSlides[idx]?.subHtml || '';
+      lg.outer.find('.lg-sub-html').html(subHtml);
+
+      const miniId = currentSlideToMiniatureId[idx];
+      if (miniId) {
+        currentViewedMiniatureId = miniId;
+        history.replaceState(null, '', '#' + miniId);
+      }
+    }) as EventListener);
+
+    // Inject copy-link button into toolbar
+    container.addEventListener('lgAfterOpen', (() => {
+      const toolbar = lg.outer.find('.lg-toolbar').get();
+      if (!toolbar) return;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lg-icon lg-copy-link';
+      btn.setAttribute('aria-label', 'Copy link');
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(window.location.href).then(() => {
+          btn.classList.add('lg-copy-link-copied');
+          btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><polyline points="20 6 9 17 4 12"/></svg>`;
+          setTimeout(() => {
+            btn.classList.remove('lg-copy-link-copied');
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+          }, 2000);
+        });
+      });
+
+      toolbar.prepend(btn);
+    }) as EventListener);
+
+    // Clean up on close
+    container.addEventListener('lgAfterClose', (() => {
+      // Remove hash from URL
+      if (!closedViaPopstate) {
+        history.back();
+      }
+
+      // Scroll to the miniature that was last viewed
+      if (currentViewedMiniatureId && galleryElement) {
+        const el = galleryElement.querySelector(`.miniature-item[data-id="${currentViewedMiniatureId}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      currentLg = null;
+      currentSlideToMiniatureId = [];
+      closedViaPopstate = false;
+    }) as EventListener);
+
+    lg.openGallery(startIndex);
+  }
+
   if (galleryElement) {
+    // Click handler
     galleryElement.addEventListener('click', (e) => {
       const item = (e.target as HTMLElement).closest('.miniature-item');
       if (!item) return;
 
-      const visibleItems = galleryElement.querySelectorAll('.miniature-item:not(.filtered-out):not(.filtering-out)');
-      let allSlides: any[] = [];
-      let startIndex = 0;
-
-      visibleItems.forEach((el) => {
-        const slides = JSON.parse(el.getAttribute('data-slides') || '[]');
-        if (el === item) startIndex = allSlides.length;
-        allSlides = allSlides.concat(slides);
-      });
-
-      const container = document.createElement('div');
-      const lg = lightGallery(container, {
-        plugins: [lgZoom, lgThumbnail],
-        speed: 400,
-        licenseKey: '0000-0000-000-0000',
-        download: false,
-        dynamic: true,
-        dynamicEl: allSlides,
-      });
-
-      // lightGallery delays caption updates until after the slide animation completes - update immediately instead
-      container.addEventListener('lgBeforeSlide', ((e: CustomEvent) => {
-        const subHtml = allSlides[e.detail.index]?.subHtml || '';
-        lg.outer.find('.lg-sub-html').html(subHtml);
-      }) as EventListener);
-
-      lg.openGallery(startIndex);
+      const { allSlides, slideToMiniatureId, startIndex } = buildSlidesFromVisible(item);
+      createAndOpenLightbox(allSlides, slideToMiniatureId, startIndex, true);
     });
+
+    // Popstate handler (back/forward buttons)
+    window.addEventListener('popstate', () => {
+      if (currentLg) {
+        closedViaPopstate = true;
+        currentLg.closeGallery();
+        return;
+      }
+
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        // Forward button case: re-open lightbox for this hash
+        openFromHash(hash, false);
+      }
+    });
+
+    // Open from hash on page load
+    const initialHash = window.location.hash.slice(1);
+    if (initialHash) {
+      // Replace current entry (which has the hash) with the clean URL,
+      // so that openFromHash's pushState creates a back-able entry
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      openFromHash(initialHash);
+    }
+  }
+
+  function openFromHash(hash: string, pushState: boolean = true) {
+    if (!galleryElement) return;
+
+    const targetItem = galleryElement.querySelector(`.miniature-item:not(.filtered-out):not(.filtering-out)[data-id="${hash}"]`);
+    if (!targetItem) {
+      // Miniature not found or filtered out — strip hash
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      return;
+    }
+
+    const { allSlides, slideToMiniatureId, startIndex } = buildSlidesFromVisible(targetItem);
+    createAndOpenLightbox(allSlides, slideToMiniatureId, startIndex, pushState);
   }
 </script>
 
@@ -347,5 +472,23 @@ const processedMiniatures = await Promise.all(
 
   .meta-tooltip:hover::after {
     opacity: 1;
+  }
+
+  .lg-copy-link {
+    color: #999;
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+
+  .lg-copy-link:hover {
+    color: #fff;
+  }
+
+  .lg-copy-link-copied {
+    color: #4caf50;
+  }
+
+  .lg-copy-link-copied:hover {
+    color: #4caf50;
   }
 </style>

@@ -166,7 +166,7 @@ const { filterGroups } = Astro.props;
     if (searchQuery.trim()) params.set('q', searchQuery.trim());
     const qs = params.toString();
     const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
-    history.replaceState(null, '', newUrl);
+    history.replaceState(null, '', newUrl + window.location.hash);
   }
 
   // Chip click handler via event delegation
