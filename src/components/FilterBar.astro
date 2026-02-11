@@ -20,6 +20,14 @@ const { filterGroups } = Astro.props;
 ---
 
 <div class="filter-bar">
+  <div class="search-wrapper">
+    <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6.5" cy="6.5" r="5" />
+      <path d="M10 10l4.5 4.5" />
+    </svg>
+    <input type="text" id="search-input" class="search-input" placeholder="Search miniatures..." />
+    <button class="search-clear" type="button" aria-label="Clear search">&times;</button>
+  </div>
   <div class="filter-bar-header">
     <button class="filter-toggle" aria-expanded="false" aria-controls="filter-chips">
       <svg class="funnel-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -50,6 +58,11 @@ const { filterGroups } = Astro.props;
 
 <script>
   const activeFilters = new Set<string>();
+  let searchQuery = '';
+  let pushStateTimer: number;
+
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const searchClear = document.querySelector('.search-clear') as HTMLElement;
 
   function makeKey(type: string, value: string): string {
     return `${type}:${value}`;
@@ -61,7 +74,7 @@ const { filterGroups } = Astro.props;
 
     const items = gallery.querySelectorAll('.miniature-item');
     const chips = document.querySelectorAll('.filter-chip');
-    const clearBtn = document.querySelector('.filter-clear') as HTMLElement;
+    const filterClear = document.querySelector('.filter-clear') as HTMLElement;
     const noResults = gallery.querySelector('.no-results') as HTMLElement;
 
     const selectedManufacturers = new Set<string>();
@@ -74,18 +87,30 @@ const { filterGroups } = Astro.props;
       if (type === 'faction') selectedFactions.add(value);
     });
 
-    const hasFilters = activeFilters.size > 0;
+    const hasChipFilters = activeFilters.size > 0;
+    const searchWords = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const hasSearch = searchWords.length > 0;
+    const hasAnyFilter = hasChipFilters || hasSearch;
     let visibleCount = 0;
 
     items.forEach((el) => {
       const item = el as HTMLElement;
       const manufacturer = item.dataset.manufacturer || '';
       const faction = item.dataset.faction || '';
+      const title = item.dataset.title || '';
+      const game = item.dataset.game || '';
 
-      const shouldShow = !hasFilters ||
+      const passesChipFilter = !hasChipFilters ||
         selectedManufacturers.has(manufacturer) ||
         (faction && selectedFactions.has(faction));
 
+      let passesSearch = true;
+      if (hasSearch) {
+        const haystack = `${title} ${manufacturer} ${game} ${faction}`.toLowerCase();
+        passesSearch = searchWords.every((word) => haystack.includes(word));
+      }
+
+      const shouldShow = passesChipFilter && passesSearch;
       const isCurrentlyHidden = item.classList.contains('filtered-out') || item.classList.contains('filtering-out');
 
       if (shouldShow) {
@@ -115,20 +140,30 @@ const { filterGroups } = Astro.props;
       btn.classList.toggle('active', activeFilters.has(key));
     });
 
-    // Show/hide clear button
-    if (clearBtn) {
-      clearBtn.classList.toggle('visible', hasFilters);
+    // Show/hide filter clear button
+    if (filterClear) {
+      filterClear.classList.toggle('visible', hasChipFilters);
+    }
+
+    // Show/hide search clear button and active state
+    if (searchClear) {
+      searchClear.classList.toggle('visible', hasSearch);
+    }
+    const searchWrapper = document.querySelector('.search-wrapper') as HTMLElement;
+    if (searchWrapper) {
+      searchWrapper.classList.toggle('active', hasSearch);
     }
 
     // Empty state
     if (noResults) {
-      noResults.classList.toggle('visible', hasFilters && visibleCount === 0);
+      noResults.classList.toggle('visible', hasAnyFilter && visibleCount === 0);
     }
 
     // Update URL
     const params = new URLSearchParams();
     selectedManufacturers.forEach((m) => params.append('manufacturer', m));
     selectedFactions.forEach((f) => params.append('faction', f));
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
     const qs = params.toString();
     const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     history.replaceState(null, '', newUrl);
@@ -151,12 +186,38 @@ const { filterGroups } = Astro.props;
     });
   }
 
-  // Clear button
-  const clearBtn = document.querySelector('.filter-clear');
-  if (clearBtn) {
-    clearBtn.addEventListener('click', (e) => {
+  // Filter clear button (clears chip filters only)
+  const filterClear = document.querySelector('.filter-clear');
+  if (filterClear) {
+    filterClear.addEventListener('click', (e) => {
       e.preventDefault();
       activeFilters.clear();
+      applyFilters();
+    });
+  }
+
+  // Search input handler
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value;
+      applyFilters();
+
+      // Debounced pushState so browser back button works
+      clearTimeout(pushStateTimer);
+      pushStateTimer = window.setTimeout(() => {
+        history.pushState(null, '', window.location.href);
+      }, 800);
+    });
+  }
+
+  // Search clear button (clears search only)
+  if (searchClear) {
+    searchClear.addEventListener('click', () => {
+      searchQuery = '';
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
       applyFilters();
     });
   }
@@ -175,19 +236,103 @@ const { filterGroups } = Astro.props;
   params.getAll('manufacturer').forEach((m) => activeFilters.add(makeKey('manufacturer', m)));
   params.getAll('faction').forEach((f) => activeFilters.add(makeKey('faction', f)));
 
-  if (activeFilters.size > 0) {
+  const initQuery = params.get('q') || '';
+  if (initQuery) {
+    searchQuery = initQuery;
+    if (searchInput) searchInput.value = initQuery;
+  }
+
+  if (activeFilters.size > 0 || searchQuery) {
     applyFilters();
-    // Auto-expand mobile panel if filters are active
-    if (chipsContainer && toggleBtn) {
+    // Auto-expand mobile chip panel only for chip filters
+    if (activeFilters.size > 0 && chipsContainer && toggleBtn) {
       chipsContainer.classList.add('expanded');
       toggleBtn.setAttribute('aria-expanded', 'true');
     }
   }
+
+  // Back/forward navigation
+  window.addEventListener('popstate', () => {
+    const p = new URLSearchParams(window.location.search);
+
+    activeFilters.clear();
+    p.getAll('manufacturer').forEach((m) => activeFilters.add(makeKey('manufacturer', m)));
+    p.getAll('faction').forEach((f) => activeFilters.add(makeKey('faction', f)));
+
+    searchQuery = p.get('q') || '';
+    if (searchInput) searchInput.value = searchQuery;
+
+    applyFilters();
+  });
 </script>
 
 <style>
   .filter-bar {
     margin-bottom: 1.5rem;
+  }
+
+  .search-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+    margin-bottom: 0.75rem;
+    transition: border-color 0.3s;
+  }
+
+  .search-wrapper:focus-within {
+    border-color: var(--color-text-muted);
+  }
+
+  .search-wrapper.active {
+    background: color-mix(in srgb, var(--color-text) 12%, transparent);
+    border-color: var(--color-text);
+  }
+
+  .search-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    opacity: 0.5;
+  }
+
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.875rem;
+    min-width: 0;
+  }
+
+  .search-input::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  .search-clear {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 0.15rem;
+    transition: color 0.2s;
+  }
+
+  .search-clear:hover {
+    color: var(--color-text);
+  }
+
+  .search-clear.visible {
+    display: inline-flex;
   }
 
   .filter-bar-header {

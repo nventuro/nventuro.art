@@ -99,6 +99,7 @@ const processedMiniatures = await Promise.all(
       photoCount: miniature.data.photos.length,
       slides,
       manufacturer: miniature.data.manufacturer,
+      game: miniature.data.game,
       faction: miniature.data.faction,
     };
   })
@@ -111,7 +112,9 @@ const processedMiniatures = await Promise.all(
       class="miniature-item"
       data-slides={JSON.stringify(mini.slides)}
       data-manufacturer={mini.manufacturer}
+      data-game={mini.game ?? ''}
       data-faction={mini.faction ?? ''}
+      data-title={mini.title}
     >
       <img
         src={mini.thumbnail.src}
@@ -132,7 +135,7 @@ const processedMiniatures = await Promise.all(
       )}
     </div>
   ))}
-  <p class="no-results">No models match the selected filters.</p>
+  <p class="no-results">No models found.</p>
 </div>
 
 <script>
