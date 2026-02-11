@@ -8,7 +8,7 @@ const miniatures = defineCollection({
       title: z.string(),
       photos: z.array(image()).min(1),
       manufacturer: z.string(),
-      year: z.number(),
+      date: z.coerce.date(),
       scale: z.string(),
       game: z.string().optional(),
       faction: z.string().optional(),

@@ -76,7 +76,7 @@ const processedMiniatures = await Promise.all(
     }
 
     subtitleParts.push(`<span class="meta-item">${miniature.data.scale}</span>`);
-    subtitleParts.push(`<span class="meta-item">${miniature.data.year}</span>`);
+    subtitleParts.push(`<span class="meta-item">${miniature.data.date.getFullYear()}</span>`);
 
     const subtitle = `<div class="meta-row">${subtitleParts.join('<span class="meta-sep">·</span>')}</div>`;
 

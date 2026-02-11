@@ -4,7 +4,9 @@ import MiniatureGrid from '../components/MiniatureGrid.astro';
 import FilterBar from '../components/FilterBar.astro';
 import { getCollection } from 'astro:content';
 
-const miniatures = await getCollection('miniatures');
+const miniatures = (await getCollection('miniatures')).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
 
 // Load logo images for filter chips (same pattern as MiniatureGrid)
 const logoFiles = import.meta.glob<{ default: ImageMetadata }>('/src/assets/logos/**/*.png', { eager: true });
