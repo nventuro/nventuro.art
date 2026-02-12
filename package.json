@@ -7,7 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "admin": "node scripts/admin.mjs"
+    "admin": "node --watch scripts/admin.mjs"
   },
   "dependencies": {
     "astro": "^5.17.1",

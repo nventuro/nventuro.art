@@ -12,6 +12,7 @@ const miniatures = defineCollection({
       scale: z.string(),
       game: z.string().optional(),
       faction: z.string().optional(),
+      order: z.number().int().optional(),
     }),
 });
 

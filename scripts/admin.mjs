@@ -50,7 +50,7 @@ function getMetadata() {
 
 function handleSave(body) {
   const data = JSON.parse(body);
-  const { title, manufacturer, date, scale, game, faction, photos } = data;
+  const { title, manufacturer, date, scale, game, faction, order, photos } = data;
 
   if (!title || !manufacturer || !date || !scale || !photos?.length) {
     return { status: 400, body: { error: 'Missing required fields' } };
@@ -98,6 +98,7 @@ scale: "${scale}"`;
 
   if (game) yaml += `\ngame: "${game}"`;
   if (faction) yaml += `\nfaction: "${faction}"`;
+  if (order) yaml += `\norder: ${order}`;
   yaml += '\n';
 
   writeFileSync(yamlPath, yaml);
@@ -211,6 +212,10 @@ const HTML = `<!DOCTYPE html>
     font-size: 0.95rem;
     font-family: inherit;
   }
+
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
   input:focus, select:focus {
     outline: none;
@@ -469,7 +474,10 @@ const HTML = `<!DOCTYPE html>
 <h1>Add Miniature</h1>
 
 <section>
-  <h2>Metadata</h2>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+    <h2 style="margin:0">Metadata</h2>
+    <button class="btn btn-secondary" id="clear-btn" type="button" style="font-size:0.8rem;padding:0.3rem 0.75rem">Clear</button>
+  </div>
 
   <div class="form-row">
     <div class="form-group" style="flex:2">
@@ -479,7 +487,11 @@ const HTML = `<!DOCTYPE html>
     </div>
     <div class="form-group">
       <label for="date">Date *</label>
-      <input type="date" id="date">
+      <input type="date" id="date" lang="en-GB">
+    </div>
+    <div class="form-group" style="flex:0 0 80px;min-width:80px">
+      <label for="order">Order</label>
+      <input type="number" id="order" min="1" step="1" placeholder="-">
     </div>
   </div>
 
@@ -560,6 +572,8 @@ const HTML = `<!DOCTYPE html>
   // --- DOM refs ---
   const titleInput = document.getElementById('title');
   const dateInput = document.getElementById('date');
+  const orderInput = document.getElementById('order');
+  const clearBtn = document.getElementById('clear-btn');
   const slugPreview = document.getElementById('slug-preview');
   const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('file-input');
@@ -657,6 +671,23 @@ const HTML = `<!DOCTYPE html>
       return document.getElementById(id + '-new').value.trim();
     }
     return select.value;
+  }
+
+  function setDropdownValue(id, value) {
+    const select = document.getElementById(id);
+    const newInput = document.getElementById(id + '-new');
+    const warning = document.getElementById(id + '-warning');
+    // Try to find the value in the dropdown options
+    const option = Array.from(select.options).find(o => o.value === value);
+    if (option) {
+      select.value = value;
+    } else {
+      select.value = '';
+    }
+    // Always hide the new-value input and clear it
+    newInput.classList.remove('visible');
+    newInput.value = '';
+    warning.classList.remove('visible');
   }
 
   function isNewValueDuplicate(id) {
@@ -911,6 +942,19 @@ const HTML = `<!DOCTYPE html>
   }
 
   dateInput.addEventListener('change', updateSaveBtn);
+  orderInput.addEventListener('input', updateSaveBtn);
+
+  clearBtn.addEventListener('click', () => {
+    titleInput.value = '';
+    slugPreview.textContent = '';
+    dateInput.value = new Date().toISOString().split('T')[0];
+    orderInput.value = '';
+    setDropdownValue('manufacturer', '');
+    setDropdownValue('scale', '28mm');
+    setDropdownValue('game', '');
+    setDropdownValue('faction', '');
+    updateSaveBtn();
+  });
 
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
@@ -922,6 +966,8 @@ const HTML = `<!DOCTYPE html>
       // Export all photos from canvas as PNG data URLs
       const photoDataUrls = photos.map(p => p.dataUrl);
 
+      const orderVal = orderInput.value ? parseInt(orderInput.value, 10) : null;
+
       const payload = {
         title: titleInput.value.trim(),
         manufacturer: getFieldValue('manufacturer'),
@@ -929,6 +975,7 @@ const HTML = `<!DOCTYPE html>
         scale: getFieldValue('scale'),
         game: getFieldValue('game'),
         faction: getFieldValue('faction'),
+        order: orderVal,
         photos: photoDataUrls,
       };
 
@@ -955,15 +1002,29 @@ const HTML = `<!DOCTYPE html>
       statusEl.className = 'status success visible';
       statusEl.innerHTML = html;
 
-      // Reset form
+      // Remember current values before refreshing dropdowns
+      const keepDate = payload.date;
+      const keepManufacturer = payload.manufacturer;
+      const keepScale = payload.scale;
+      const keepGame = payload.game;
+      const keepFaction = payload.faction;
+
+      // Clear title and photos
       titleInput.value = '';
       slugPreview.textContent = '';
-      dateInput.value = new Date().toISOString().split('T')[0];
       photos = [];
       renderThumbnails();
 
-      // Refresh metadata (new slugs, new dropdown values) and reset dropdowns
+      // Refresh metadata (new slugs, new dropdown values)
       await loadMetadata();
+
+      // Restore kept values in the refreshed dropdowns
+      dateInput.value = keepDate;
+      setDropdownValue('manufacturer', keepManufacturer);
+      setDropdownValue('scale', keepScale);
+      setDropdownValue('game', keepGame);
+      setDropdownValue('faction', keepFaction);
+      orderInput.value = orderVal ? orderVal + 1 : '';
 
       saveBtn.textContent = 'Save Miniature';
       updateSaveBtn();
